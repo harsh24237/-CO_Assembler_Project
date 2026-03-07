@@ -157,3 +157,62 @@ def decode_line(line, pc, label_dict):
 
     return None
 
+def run_assembler(out_file, in_file):
+
+    f = open(in_file)
+    lines = f.readlines()
+
+    label_dict = {}
+    inst_list = []
+
+    pc = 0
+
+    for i in range(len(lines)):
+
+        line = lines[i].strip()
+
+        if line == "" or line.startswith("#"):
+            continue
+
+        if ":" in line:
+
+            tag = line.split(":")[0].strip()
+            label_dict[tag] = pc
+
+            line = line.split(":")[1].strip()
+
+        if line != "":
+            inst_list.append(line)
+            pc += 4
+
+    results = []
+
+    pc = 0
+
+    for i in range(len(inst_list)):
+
+        line = inst_list[i]
+
+        binary = decode_line(line, pc, label_dict)
+
+        if binary is None:
+            print("Error in instruction:", line)
+        else:
+            results.append(binary)
+
+        pc += 4
+
+    out = open(out_file,"w")
+
+    for i in range(len(results)):
+        out.write(results[i] + "\n")
+
+    print("Assembly finished")
+
+
+if len(sys.argv) < 3:
+    print("Usage: python assembler.py input.asm output.txt")
+else:
+    run_assembler(sys.argv[2], sys.argv[1])
+
+
