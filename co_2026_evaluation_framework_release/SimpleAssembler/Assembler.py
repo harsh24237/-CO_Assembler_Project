@@ -60,7 +60,7 @@ def decode_line(line, pc, label_dict):
 
     info = opcode_table[inst]
 
-    # ---------- R TYPE ----------
+    # R TYPE
     if inst in ["add","sub","slt","srl","or","xor"]:
 
         rd = reg_table[parts[1]]
@@ -72,3 +72,88 @@ def decode_line(line, pc, label_dict):
         funct7 = info[2]
 
         return funct7 + format(rs2,'05b') + format(rs1,'05b') + funct3 + format(rd,'05b') + opcode
+        # I TYPE 
+    if inst in ["addi","jalr"]:
+
+        rd = reg_table[parts[1]]
+        rs1 = reg_table[parts[2]]
+        imm = int(parts[3])
+
+        imm_bits = format(imm & 0xFFF,'012b')
+
+        return imm_bits + format(rs1,'05b') + info[1] + format(rd,'05b') + info[0]
+
+
+    #  LOAD 
+    if inst == "lw":
+
+        rd = reg_table[parts[1]]
+
+        m = re.match(r'(-?\d+)\((\w+)\)', parts[2])
+
+        if m:
+            offset = int(m.group(1))
+            base = reg_table[m.group(2)]
+
+            imm_bits = format(offset & 0xFFF,'012b')
+
+            return imm_bits + format(base,'05b') + info[1] + format(rd,'05b') + info[0]
+
+
+    # STORE 
+    if inst == "sw":
+
+        rs2 = reg_table[parts[1]]
+
+        m = re.match(r'(-?\d+)\((\w+)\)', parts[2])
+
+        if m:
+
+            offset = int(m.group(1))
+            base = reg_table[m.group(2)]
+
+            imm_bits = format(offset & 0xFFF,'012b')
+
+            return imm_bits[:7] + format(rs2,'05b') + format(base,'05b') + info[1] + imm_bits[7:] + info[0]
+
+
+     # BRANCH 
+    if inst in ["beq","bne","blt","bge","bltu"]:
+
+        rs1 = reg_table[parts[1]]
+        rs2 = reg_table[parts[2]]
+        target = parts[3]
+
+        if target in label_dict:
+            offset = label_dict[target] - pc
+        else:
+            offset = int(target)
+
+        if offset < 0:
+            offset = (1 << 13) + offset
+
+        imm = format(offset,'013b')
+
+        return imm[0] + imm[2:8] + format(rs2,'05b') + format(rs1,'05b') + info[1] + imm[8:12] + imm[1] + info[0]
+
+
+    #  J TYPE 
+    if inst == "jal":
+
+        rd = reg_table[parts[1]]
+        target = parts[2]
+
+        if target in label_dict:
+            offset = label_dict[target] - pc
+        else:
+            offset = int(target)
+
+        if offset < 0:
+            offset = (1 << 21) + offset
+
+        imm = format(offset,'021b')
+
+        return imm[0] + imm[10:20] + imm[9] + imm[1:9] + format(rd,'05b') + info[0]
+
+    return None
+
