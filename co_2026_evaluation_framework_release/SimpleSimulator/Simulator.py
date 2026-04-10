@@ -127,3 +127,72 @@ def simulator(input_file):
                     raise Exception("Invalid I-type funct3")
 
                 write_reg(regs, rd, res)
+# LOAD (LW)
+            elif opcode == "0000011":
+                imm = sign_extend(int(inst[0:12], 2), 12)
+                rs1 = int(inst[12:17], 2)
+                f3  = inst[17:20]
+                rd  = int(inst[20:25], 2)
+
+                addr = (regs[rs1] + imm) & 0xFFFFFFFF
+                if f3 == "010":                             # lw
+                    val = read_mem(data_mem, stack_mem, addr)
+                else:
+                    raise Exception(f"Unsupported load funct3={f3}")
+                write_reg(regs, rd, val)
+
+            # STORE (SW)
+            elif opcode == "0100011":
+                imm = sign_extend(int(inst[0:7] + inst[20:25], 2), 12)
+                rs1 = int(inst[12:17], 2)
+                rs2 = int(inst[7:12], 2)
+                f3  = inst[17:20]
+
+                addr = (regs[rs1] + imm) & 0xFFFFFFFF
+                if f3 == "010":                             # sw
+                    data_mem, stack_mem = write_mem(data_mem, stack_mem, addr, regs[rs2])
+                else:
+                    raise Exception(f"Unsupported store funct3={f3}")
+
+            # BRANCH
+            elif opcode == "1100011":
+                imm = (int(inst[0])   << 12) | \
+                      (int(inst[24])  << 11) | \
+                      (int(inst[1:7], 2) << 5) | \
+                      (int(inst[20:24], 2) << 1)
+                imm = sign_extend(imm, 13)
+
+                rs1 = int(inst[12:17], 2)
+                rs2 = int(inst[7:12], 2)
+                f3  = inst[17:20]
+
+                cond = False
+                if f3 == "000":
+                    cond = regs[rs1] == regs[rs2]                               # beq
+                elif f3 == "001":
+                    cond = regs[rs1] != regs[rs2]                               # bne
+                elif f3 == "100":
+                    cond = to_signed(regs[rs1]) < to_signed(regs[rs2])          # blt
+                elif f3 == "101":
+                    cond = to_signed(regs[rs1]) >= to_signed(regs[rs2])         # bge
+                elif f3 == "110":
+                    cond = (regs[rs1] & 0xFFFFFFFF) < (regs[rs2] & 0xFFFFFFFF) # bltu
+                elif f3 == "111":
+                    cond = (regs[rs1] & 0xFFFFFFFF) >= (regs[rs2] & 0xFFFFFFFF)# bgeu
+                else:
+                    raise Exception(f"Invalid branch funct3={f3}")
+
+                next_pc = pc + (imm if cond else 4)
+
+            # JAL
+            elif opcode == "1101111":
+                imm = (int(inst[0])        << 20) | \
+                      (int(inst[1:11], 2)  << 1)  | \
+                      (int(inst[11])       << 11) | \
+                      (int(inst[12:20], 2) << 12)
+                imm = sign_extend(imm, 21)
+
+                rd = int(inst[20:25], 2)
+                write_reg(regs, rd, pc + 4)
+                next_pc = pc + imm
+
