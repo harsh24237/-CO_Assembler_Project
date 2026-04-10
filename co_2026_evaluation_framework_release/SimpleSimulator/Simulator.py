@@ -56,3 +56,74 @@ def simulator(input_file):
 
     bin_out = []
     dec_out = []
+
+
+    while True:
+        idx = pc // 4
+        if idx < 0 or idx >= len(instructions):
+            break
+
+        inst = instructions[idx]
+
+        # Virtual Halt: beq zero, zero, 0
+        if inst == "00000000000000000000000001100011":
+            bin_out.append(bin_trace(pc, regs))
+            dec_out.append(dec_trace(pc, regs))
+            break
+
+        next_pc = pc + 4
+        opcode = inst[25:32]
+
+        try:
+
+            # R-TYPE
+            if opcode == "0110011":
+                f7  = inst[0:7]
+                rs2 = int(inst[7:12], 2)
+                rs1 = int(inst[12:17], 2)
+                f3  = inst[17:20]
+                rd  = int(inst[20:25], 2)
+
+                a = regs[rs1]
+                b = regs[rs2]
+
+                if f3 == "000":
+                    if f7 == "0100000":
+                        res = to_signed(a) - to_signed(b)   # sub
+                    else:
+                        res = a + b                          # add
+                elif f3 == "001":
+                    res = a << (b & 31)                      # sll
+                elif f3 == "010":
+                    res = 1 if to_signed(a) < to_signed(b) else 0   # slt
+                elif f3 == "011":
+                    res = 1 if (a & 0xFFFFFFFF) < (b & 0xFFFFFFFF) else 0  # sltu
+                elif f3 == "100":
+                    res = a ^ b                              # xor
+                elif f3 == "101":
+                   res = (a & 0xFFFFFFFF) >> (b & 31)  # srl (logical)
+                elif f3 == "110":
+                    res = a | b                              # or
+                elif f3 == "111":
+                    res = a & b                              # and
+                else:
+                    raise Exception("Invalid R-type funct3")
+
+                write_reg(regs, rd, res)
+
+            # I-TYPE 
+            elif opcode == "0010011":
+                imm = sign_extend(int(inst[0:12], 2), 12)
+                rs1 = int(inst[12:17], 2)
+                f3  = inst[17:20]
+                rd  = int(inst[20:25], 2)
+
+                if f3 == "000":
+                    res = regs[rs1] + imm                  
+                elif f3 == "011":
+                    res = 1 if (regs[rs1] & 0xFFFFFFFF) < (imm & 0xFFFFFFFF) else 0  # sltiu
+                  
+                else:
+                    raise Exception("Invalid I-type funct3")
+
+                write_reg(regs, rd, res)
