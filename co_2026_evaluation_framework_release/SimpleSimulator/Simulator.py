@@ -196,3 +196,69 @@ def simulator(input_file):
                 write_reg(regs, rd, pc + 4)
                 next_pc = pc + imm
 
+            # JALR
+            elif opcode == "1100111":
+                imm = sign_extend(int(inst[0:12], 2), 12)
+                rs1 = int(inst[12:17], 2)
+                rd  = int(inst[20:25], 2)
+
+                write_reg(regs, rd, pc + 4)
+                next_pc = (regs[rs1] + imm) & ~1
+
+            # LUI 
+            elif opcode == "0110111":
+                imm = int(inst[0:20], 2) << 12
+                rd  = int(inst[20:25], 2)
+                write_reg(regs, rd, imm)
+
+            # AUIPC
+            elif opcode == "0010111":
+                imm = int(inst[0:20], 2) << 12
+                rd  = int(inst[20:25], 2)
+                write_reg(regs, rd, pc + imm)
+
+            else:
+                raise Exception(f"Unknown opcode {opcode}")
+
+        except Exception as e:
+            print(f"Error at PC={pc}: {e}")
+            sys.exit(1)
+
+        pc = next_pc
+        bin_out.append(bin_trace(pc, regs))
+        dec_out.append(dec_trace(pc, regs))
+
+    return bin_out, dec_out, data_mem
+
+
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+
+if len(args) < 2:
+    print("Usage: python simulator.py input.txt output.txt")
+    sys.exit(1)
+
+input_file  = args[0]
+output_file = args[1]
+
+dir_path = os.path.dirname(output_file)
+if dir_path != "":
+    os.makedirs(dir_path, exist_ok=True)
+
+file1 = output_file
+file2 = output_file.replace(".txt", "_r.txt")
+
+bin_trace_out, dec_trace_out, mem = simulator(input_file)
+
+with open(file1, 'w') as f:
+    for line in bin_trace_out:
+        f.write(line + "\n")
+    for i in range(32):
+        addr = 0x00010000 + i * 4
+        f.write(f"0x{addr:08X}:0b{mem[i]:032b}\n")
+
+with open(file2, 'w') as f:
+    for line in dec_trace_out:
+        f.write(line + "\n")
+    for i in range(32):
+        addr = 0x00010000 + i * 4
+        f.write(f"0x{addr:08X}:{mem[i]}\n")
